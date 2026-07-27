@@ -50,7 +50,7 @@ export default function Bipagem() {
   // Campos do formulário
   const [ean, setEan] = useState('')
   const [lote, setLote] = useState('')
-  const [quantidade, setQuantidade] = useState('1')
+  const [quantidade, setQuantidade] = useState('')
 
   // Estado de busca de produto
   const [isBuscando, setIsBuscando] = useState(false)
@@ -288,7 +288,7 @@ export default function Bipagem() {
       setProdutoNaoEncontrado(false)
       setDescricaoManual('')
       setSkuManual('')
-      setQuantidade('1')
+      setQuantidade('')
 
       setTimeout(() => eanInputRef.current?.focus(), 80)
     } catch (err: any) {
