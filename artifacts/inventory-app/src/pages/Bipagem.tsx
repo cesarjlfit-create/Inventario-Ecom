@@ -366,7 +366,7 @@ export default function Bipagem() {
                     }
                   }}
                   onKeyDown={handleEanKeyDown}
-                  className="h-14 pl-10 pr-4 text-lg font-mono tracking-widest focus:ring-2 focus:ring-primary"
+                  className="h-14 pl-10 pr-4 text-lg font-mono tracking-widest input-red-focus"
                   autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
@@ -378,7 +378,7 @@ export default function Bipagem() {
                 type="button"
                 onClick={() => buscarProduto(ean)}
                 disabled={isBuscando || !ean.trim()}
-                className="h-14 w-14 flex items-center justify-center rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                className="h-14 w-14 flex items-center justify-center rounded-lg bg-[#e50914]/10 border border-[#e50914]/30 hover:bg-[#e50914]/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-[0_0_12px_rgba(229,9,20,0.3)] flex-shrink-0"
                 data-testid="button-buscar-ean"
                 title="Buscar produto (Enter)"
               >
@@ -392,11 +392,11 @@ export default function Bipagem() {
               <button
                 type="button"
                 onClick={() => setCameraAberta(true)}
-                className="h-14 w-14 flex items-center justify-center rounded-lg bg-muted border border-border hover:bg-muted/80 transition-colors flex-shrink-0"
+                className="h-14 w-14 flex items-center justify-center rounded-lg bg-zinc-900 border border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800 transition-all duration-200 flex-shrink-0"
                 data-testid="button-camera"
                 title="Ativar câmera"
               >
-                <Camera className="h-5 w-5 text-muted-foreground" />
+                <Camera className="h-5 w-5 text-zinc-400" />
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -518,7 +518,7 @@ export default function Bipagem() {
           <Button
             type="submit"
             size="lg"
-            className="w-full h-14 text-base font-bold tracking-wide"
+            className="w-full h-14 text-base font-bold tracking-wide bg-[#e50914] hover:bg-[#c4070f] text-white border-0 hover:shadow-[0_0_20px_rgba(229,9,20,0.45)] transition-all duration-200"
             disabled={isSalvando}
             data-testid="button-salvar"
           >

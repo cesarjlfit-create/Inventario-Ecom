@@ -321,7 +321,7 @@ export default function Acompanhamento() {
             {/* Exportar */}
             <Button
               variant="outline"
-              className="h-10 gap-2 flex-shrink-0"
+              className="h-10 gap-2 flex-shrink-0 border-[#e50914]/40 text-[#e50914] hover:bg-[#e50914]/10 hover:border-[#e50914] hover:shadow-[0_0_12px_rgba(229,9,20,0.25)] transition-all duration-200"
               onClick={exportarExcel}
               disabled={filtrados.length === 0}
               data-testid="button-exportar"
@@ -485,7 +485,7 @@ export default function Acompanhamento() {
                                 <>
                                   <button
                                     onClick={() => iniciarEdicao(lanc)}
-                                    className="h-7 w-7 flex items-center justify-center rounded bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                                    className="h-7 w-7 flex items-center justify-center rounded bg-[#e50914]/10 hover:bg-[#e50914]/25 text-[#e50914] transition-colors"
                                     title="Editar lote e quantidade"
                                     data-testid={`button-editar-${lanc.id}`}
                                   >
@@ -603,7 +603,7 @@ export default function Acompanhamento() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="flex-1 h-9 gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                              className="flex-1 h-9 gap-1 border-[#e50914]/30 text-[#e50914] hover:bg-[#e50914]/10 hover:border-[#e50914]/60"
                               onClick={() => iniciarEdicao(lanc)}
                             >
                               <Pencil className="h-3.5 w-3.5" />

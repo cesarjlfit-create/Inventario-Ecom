@@ -1,55 +1,52 @@
-import { Barcode, Activity } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Barcode, ChevronLeft } from 'lucide-react'
 
-type Tab = 'bipagem' | 'acompanhamento'
+type View = 'home' | 'bipagem' | 'acompanhamento'
 
-interface HeaderProps {
-  activeTab: Tab
-  onTabChange: (tab: Tab) => void
+const VIEW_LABELS: Record<Exclude<View, 'home'>, string> = {
+  bipagem: 'Bipagem / Entrada',
+  acompanhamento: 'Acompanhamento',
 }
 
-export default function Header({ activeTab, onTabChange }: HeaderProps) {
+interface HeaderProps {
+  activeView: View
+  onBack: () => void
+}
+
+export default function Header({ activeView, onBack }: HeaderProps) {
+  const isHome = activeView === 'home'
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-      <div className="flex h-16 items-center px-4">
-        <div className="flex items-center gap-2 mr-6">
-          <Barcode className="h-6 w-6 text-primary" />
-          <h1 className="text-lg font-bold tracking-tight">InventárioApp</h1>
-        </div>
-        
-        <div className="flex items-center gap-2 flex-1">
+    <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-black/80 backdrop-blur-md supports-[backdrop-filter]:bg-black/60">
+      <div className="relative flex h-14 items-center justify-center px-4">
+
+        {/* Back button — only shown inside a section */}
+        {!isHome && (
           <button
-            onClick={() => onTabChange('bipagem')}
-            className="relative flex items-center gap-2 px-4 h-10 rounded-lg font-medium transition-colors text-sm"
-            data-testid="tab-bipagem"
+            onClick={onBack}
+            className="absolute left-3 flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors px-2 py-1.5 rounded-lg hover:bg-white/5"
+            aria-label="Voltar ao início"
           >
-            <Barcode className="h-4 w-4" />
-            <span>Bipagem</span>
-            {activeTab === 'bipagem' && (
-              <motion.div
-                layoutId="activeTab"
-                className="absolute inset-0 bg-primary/10 rounded-lg border border-primary/20"
-                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-              />
-            )}
+            <ChevronLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Início</span>
           </button>
-          
-          <button
-            onClick={() => onTabChange('acompanhamento')}
-            className="relative flex items-center gap-2 px-4 h-10 rounded-lg font-medium transition-colors text-sm"
-            data-testid="tab-acompanhamento"
-          >
-            <Activity className="h-4 w-4" />
-            <span>Acompanhamento</span>
-            {activeTab === 'acompanhamento' && (
-              <motion.div
-                layoutId="activeTab"
-                className="absolute inset-0 bg-primary/10 rounded-lg border border-primary/20"
-                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-              />
-            )}
-          </button>
+        )}
+
+        {/* Logo — always centered */}
+        <div className="flex items-center gap-2 select-none">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#e50914] shadow-[0_0_12px_rgba(229,9,20,0.5)]">
+            <Barcode className="h-4 w-4 text-white" />
+          </div>
+          <span className="text-base font-bold tracking-tight text-white">
+            Inventário<span className="text-[#e50914]">App</span>
+          </span>
         </div>
+
+        {/* Section label — right side on mobile, shown only inside sections */}
+        {!isHome && (
+          <span className="absolute right-4 text-xs text-zinc-500 hidden sm:block truncate max-w-[140px]">
+            {VIEW_LABELS[activeView as Exclude<View, 'home'>]}
+          </span>
+        )}
       </div>
     </header>
   )
