@@ -1,4 +1,4 @@
-import { Barcode, ChevronLeft } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 
 type View = 'home' | 'bipagem' | 'acompanhamento'
 
@@ -32,13 +32,13 @@ export default function Header({ activeView, onBack }: HeaderProps) {
         )}
 
         {/* Logo — always centered */}
-        <div className="flex items-center gap-2 select-none">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#e50914] shadow-[0_0_12px_rgba(229,9,20,0.5)]">
-            <Barcode className="h-4 w-4 text-white" />
-          </div>
-          <span className="text-base font-bold tracking-tight text-white">
-            Inventário<span className="text-[#e50914]">App</span>
-          </span>
+        <div className="select-none">
+          <img
+            src="/fitoway-logo.png"
+            alt="Fitoway"
+            className="h-7 w-auto object-contain"
+            draggable={false}
+          />
         </div>
 
         {/* Section label — right side on mobile, shown only inside sections */}
