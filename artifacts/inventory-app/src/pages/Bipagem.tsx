@@ -21,9 +21,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
-const LOTE_KEY = 'inventario_lote'
-
 // ─── Áudio de sucesso via Web Audio API ───────────────────────────────────────
 function playBeep() {
   try {
@@ -73,16 +70,6 @@ export default function Bipagem() {
   // Refs
   const eanInputRef = useRef<HTMLInputElement>(null)
   const buscarProdutoRef = useRef<(eanValue: string) => void>(() => {})
-
-  // ─── Restaurar lote do localStorage ──────────────────────────────────────────
-  useEffect(() => {
-    const lotesSalvo = localStorage.getItem(LOTE_KEY)
-    if (lotesSalvo) setLote(lotesSalvo)
-  }, [])
-
-  useEffect(() => {
-    if (lote) localStorage.setItem(LOTE_KEY, lote)
-  }, [lote])
 
   // ─── Auto-foco ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -282,8 +269,9 @@ export default function Bipagem() {
         { duration: 2500 }
       )
 
-      // Limpa EAN e produto, mantém Lote
+       // Limpa todos os campos para a próxima contagem
       setEan('')
+       setLote('')
       setProdutoBase(null)
       setProdutoNaoEncontrado(false)
       setDescricaoManual('')
@@ -568,8 +556,8 @@ export default function Bipagem() {
                     <Package className="h-4 w-4 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-mono text-xs font-semibold text-foreground truncate">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-mono text-xs font-semibold text-foreground">
                         {lanc.ean}
                       </p>
                       {lanc.sku && (
@@ -578,7 +566,7 @@ export default function Bipagem() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs text-foreground/90 leading-relaxed break-words">
                       {lanc.descricao || '—'}
                     </p>
                     <p className="text-xs text-muted-foreground/70">

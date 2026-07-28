@@ -412,7 +412,7 @@ export default function Acompanhamento() {
                           </td>
 
                           {/* Descrição */}
-                          <td className="px-4 py-3 max-w-xs truncate" title={lanc.descricao}>
+                          <td className="px-4 py-3 max-w-xs whitespace-normal break-words leading-snug">
                             {lanc.descricao || '—'}
                           </td>
 
@@ -523,7 +523,7 @@ export default function Acompanhamento() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="font-mono text-xs font-semibold truncate">{lanc.ean}</p>
-                          <p className="text-xs text-muted-foreground truncate">{lanc.descricao || '—'}</p>
+                          <p className="text-xs text-foreground/90 leading-relaxed break-words">{lanc.descricao || '—'}</p>
                         </div>
                         <p className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
                           {format(new Date(lanc.created_at), "dd/MM HH:mm", { locale: ptBR })}
