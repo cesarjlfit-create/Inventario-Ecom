@@ -290,7 +290,7 @@ export default function Bipagem() {
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-[calc(100vh-4rem)] p-3 pb-10">
-      <div className="max-w-xl mx-auto space-y-4">
+      <div className="w-full max-w-4xl mx-auto space-y-4">
 
         {/* ── Modal câmera ─────────────────────────────────────────────────── */}
         {cameraAberta && (
@@ -402,8 +402,8 @@ export default function Bipagem() {
                 <CheckCircle2 className="h-4 w-4" />
                 Produto encontrado
               </div>
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div className="space-y-1 sm:col-span-2">
                   <Label className="text-xs text-muted-foreground uppercase tracking-wide">
                     Descrição
                   </Label>
@@ -436,8 +436,8 @@ export default function Bipagem() {
                 <AlertCircle className="h-4 w-4" />
                 Produto não cadastrado — preencha manualmente
               </div>
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div className="space-y-1 sm:col-span-2">
                   <Label htmlFor="descricao-manual" className="text-xs text-muted-foreground uppercase tracking-wide">
                     Descrição <span className="text-red-400">*</span>
                   </Label>
