@@ -36,7 +36,7 @@ export default function Header({ activeView, onBack }: HeaderProps) {
           <img
             src="/fitoway-logo.png"
             alt="Fitoway"
-            className="h-7 w-auto object-contain"
+            className="h-[42px] w-auto object-contain"
             draggable={false}
           />
         </div>

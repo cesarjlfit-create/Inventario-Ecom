@@ -113,12 +113,6 @@ function HomeScreen({ onNavigate }: { onNavigate: (view: View) => void }) {
                 <p className="text-base font-semibold text-white">{card.title}</p>
                 <p className="text-xs text-zinc-500 mt-0.5">{card.description}</p>
               </div>
-              <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center
-                              group-hover:bg-[#e50914] group-hover:border-[#e50914] transition-all duration-200">
-                <svg className="h-3.5 w-3.5 text-zinc-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
             </motion.button>
           )
         })}
@@ -146,12 +140,6 @@ function HomeScreen({ onNavigate }: { onNavigate: (view: View) => void }) {
           <div className="flex-1 min-w-0">
             <p className="text-base font-semibold text-white">Exportar Relatório Excel</p>
             <p className="text-xs text-zinc-500 mt-0.5">Baixe todos os lançamentos em .xlsx</p>
-          </div>
-          <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center
-                          group-hover:bg-[#e50914] group-hover:border-[#e50914] transition-all duration-200">
-            <svg className="h-3.5 w-3.5 text-zinc-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
-            </svg>
           </div>
         </motion.button>
       </div>
