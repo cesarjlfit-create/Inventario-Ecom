@@ -11,6 +11,10 @@ create table if not exists public.inventario_sessoes (
   finalizado_at timestamptz
 );
 
+-- Compatibilidade com instalações que já tinham a tabela criada sem esta coluna.
+alter table public.inventario_sessoes
+  add column if not exists finalizado_at timestamptz;
+
 alter table public.inventario_lancamentos
   add column if not exists sessao_id uuid references public.inventario_sessoes(id) on delete set null;
 

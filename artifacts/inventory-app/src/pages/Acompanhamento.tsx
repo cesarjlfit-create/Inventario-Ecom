@@ -255,12 +255,29 @@ export default function Acompanhamento({
     setFinishingId(sessao.id)
     try {
       const finalizadoAt = new Date().toISOString()
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('inventario_sessoes')
         .update({ status: 'finalizado', finalizado_at: finalizadoAt })
         .eq('id', sessao.id)
         .select('*')
         .single()
+
+      // Instalações antigas podem ainda estar com o schema cache do Supabase
+      // sem a coluna finalizado_at. Nesse caso, finaliza o status mesmo assim;
+      // a migração SQL adiciona a coluna para as próximas operações.
+      if (
+        error &&
+        /finalizado_at|schema cache|column/i.test(error.message || '')
+      ) {
+        const fallback = await supabase
+          .from('inventario_sessoes')
+          .update({ status: 'finalizado' })
+          .eq('id', sessao.id)
+          .select('*')
+          .single()
+        data = fallback.data
+        error = fallback.error
+      }
 
       if (error) throw error
       const atualizada = data as InventarioSessao

@@ -1,0 +1,1 @@
+- [Migrações incrementais do Supabase](supabase-schema-migrations.md) — tabelas existentes precisam de `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`; `CREATE TABLE IF NOT EXISTS` não atualiza o schema.
