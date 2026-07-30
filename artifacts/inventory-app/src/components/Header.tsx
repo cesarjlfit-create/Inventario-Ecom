@@ -13,9 +13,18 @@ interface HeaderProps {
   onBack: () => void
   activeSession: InventarioSessao | null
   onSessionClick: () => void
+  userName: string
+  onUserNameChange: (value: string) => void
 }
 
-export default function Header({ activeView, onBack, activeSession, onSessionClick }: HeaderProps) {
+export default function Header({
+  activeView,
+  onBack,
+  activeSession,
+  onSessionClick,
+  userName,
+  onUserNameChange,
+}: HeaderProps) {
   const isHome = activeView === 'home'
 
   return (
@@ -44,22 +53,35 @@ export default function Header({ activeView, onBack, activeSession, onSessionCli
           />
         </div>
 
-        {/* Section label — right side on mobile, shown only inside sections */}
-        {!isHome && (
-          <button
-            type="button"
-            onClick={onSessionClick}
-            className="absolute right-3 flex max-w-[210px] items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2.5 py-1.5 text-left transition-colors hover:border-[#e50914]/50"
-            title="Trocar sessão ativa"
-          >
-            <span className="hidden text-[10px] uppercase tracking-wide text-zinc-500 sm:block">
-              {VIEW_LABELS[activeView as Exclude<View, 'home'>]}
-            </span>
-            <span className="truncate font-mono text-xs font-bold text-[#e50914]">
-              {activeSession?.codigo || 'Selecionar sala'}
-            </span>
-          </button>
-        )}
+        <div className="absolute right-3 flex items-center gap-2">
+          <label className="hidden text-[10px] font-semibold uppercase tracking-wide text-zinc-500 lg:block" htmlFor="nome-usuario">
+            Nome do Usuário
+          </label>
+          <input
+            id="nome-usuario"
+            required
+            value={userName}
+            onChange={(event) => onUserNameChange(event.target.value)}
+            placeholder="Nome do Usuário"
+            aria-label="Nome do Usuário"
+            className="h-9 w-[118px] rounded-lg border border-zinc-800 bg-zinc-950/90 px-2 text-[11px] text-white outline-none transition-colors placeholder:text-zinc-600 focus:border-[#e50914] focus:ring-1 focus:ring-[#e50914]/40 sm:w-[190px] sm:px-2.5 sm:text-xs"
+          />
+          {!isHome && (
+            <button
+              type="button"
+              onClick={onSessionClick}
+              className="flex max-w-[115px] items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2.5 py-1.5 text-left transition-colors hover:border-[#e50914]/50 sm:max-w-[210px]"
+              title="Trocar sessão ativa"
+            >
+              <span className="hidden text-[10px] uppercase tracking-wide text-zinc-500 xl:block">
+                {VIEW_LABELS[activeView as Exclude<View, 'home'>]}
+              </span>
+              <span className="truncate font-mono text-xs font-bold text-[#e50914]">
+                {activeSession?.codigo || 'Selecionar sala'}
+              </span>
+            </button>
+          )}
+        </div>
       </div>
     </header>
   )

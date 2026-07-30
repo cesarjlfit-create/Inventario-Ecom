@@ -21,6 +21,8 @@ import {
   History,
   DoorOpen,
   CircleCheck,
+  Trophy,
+  UserRound,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -173,6 +175,41 @@ export default function Acompanhamento({
     [lancamentos, activeSession.id],
   )
 
+  const desempenhoUsuarios = useMemo(() => {
+    const porUsuario = new Map<string, {
+      usuario: string
+      lotes: Set<string>
+      unidades: number
+      lancamentos: number
+    }>()
+
+    for (const lancamento of lancamentosDaSala) {
+      const usuario = lancamento.usuario?.trim() || 'Usuário não identificado'
+      const atual = porUsuario.get(usuario) || {
+        usuario,
+        lotes: new Set<string>(),
+        unidades: 0,
+        lancamentos: 0,
+      }
+      if (lancamento.lote.trim()) atual.lotes.add(lancamento.lote.trim())
+      atual.unidades += Number(lancamento.quantidade) || 0
+      atual.lancamentos += 1
+      porUsuario.set(usuario, atual)
+    }
+
+    const totalLotes = new Set(
+      lancamentosDaSala.map((lancamento) => lancamento.lote.trim()).filter(Boolean),
+    ).size
+
+    return Array.from(porUsuario.values())
+      .map((item) => ({
+        ...item,
+        lotesConferidos: item.lotes.size,
+        percentualLotes: totalLotes > 0 ? (item.lotes.size / totalLotes) * 100 : 0,
+      }))
+      .sort((a, b) => b.unidades - a.unidades || b.lancamentos - a.lancamentos || a.usuario.localeCompare(b.usuario))
+  }, [lancamentosDaSala])
+
   const sessoesFiltradas = useMemo(() => {
     const termo = sessionSearch.trim().toLowerCase()
     if (!termo) return sessoes
@@ -194,6 +231,7 @@ export default function Acompanhamento({
       'Código da Sala': sessao.codigo,
       'Título do Inventário': sessao.titulo,
       'Data/Hora': format(new Date(item.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR }),
+      'Usuário / Operador': item.usuario || 'Usuário não identificado',
       EAN: item.ean,
       SKU: item.sku || '',
       Descrição: item.descricao || '',
@@ -202,7 +240,7 @@ export default function Acompanhamento({
     }))
     const ws = XLSX.utils.json_to_sheet(dadosExport)
     ws['!cols'] = [
-      { wch: 18 }, { wch: 32 }, { wch: 20 }, { wch: 16 },
+      { wch: 18 }, { wch: 32 }, { wch: 20 }, { wch: 24 }, { wch: 16 },
       { wch: 14 }, { wch: 42 }, { wch: 14 }, { wch: 12 },
     ]
     const wb = XLSX.utils.book_new()
@@ -336,6 +374,7 @@ export default function Acompanhamento({
 
     const dadosExport = filtrados.map((l) => ({
       'Data/Hora': format(new Date(l.created_at), "dd/MM/yyyy HH:mm:ss", { locale: ptBR }),
+      'Usuário / Operador': l.usuario || 'Usuário não identificado',
       EAN: l.ean,
       SKU: l.sku || '',
       Descrição: l.descricao || '',
@@ -348,6 +387,7 @@ export default function Acompanhamento({
     // Larguras das colunas
     ws['!cols'] = [
       { wch: 20 }, // Data/Hora
+      { wch: 24 }, // Usuário / Operador
       { wch: 16 }, // EAN
       { wch: 14 }, // SKU
       { wch: 36 }, // Descrição
@@ -520,6 +560,77 @@ export default function Acompanhamento({
     <div className="min-h-[calc(100vh-4rem)] p-3 pb-10">
       <div className="max-w-7xl mx-auto space-y-4">
         {seletorVisao}
+
+        {/* ── Desempenho da equipe ─────────────────────────────────────────── */}
+        <section className="overflow-hidden rounded-xl border border-[#e50914]/20 bg-card" aria-labelledby="desempenho-equipe">
+          <div className="flex flex-col gap-2 border-b border-card-border bg-[#e50914]/5 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 id="desempenho-equipe" className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-white">
+                <Trophy className="h-4 w-4 text-[#e50914]" />
+                Desempenho da Equipe / Produtividade
+              </h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                Ranking em tempo real da sala {activeSession.codigo}, ordenado por unidades bipadas.
+              </p>
+            </div>
+            <span className="text-xs text-zinc-400">
+              {desempenhoUsuarios.length} operador(es) · {new Set(lancamentosDaSala.map((item) => item.lote.trim()).filter(Boolean)).size} lote(s)
+            </span>
+          </div>
+
+          {desempenhoUsuarios.length === 0 ? (
+            <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+              <UserRound className="mx-auto mb-2 h-8 w-8 opacity-30" />
+              As métricas aparecerão assim que a equipe registrar as primeiras bipagens.
+            </div>
+          ) : (
+            <div className="grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-3">
+              {desempenhoUsuarios.map((item, index) => (
+                <div
+                  key={item.usuario}
+                  className={`rounded-lg border p-4 ${
+                    index === 0
+                      ? 'border-[#e50914]/40 bg-[#e50914]/5'
+                      : 'border-card-border bg-muted/10'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                        index === 0 ? 'bg-[#e50914] text-white' : 'bg-zinc-800 text-zinc-300'
+                      }`}>
+                        {index === 0 ? <Trophy className="h-4 w-4" /> : index + 1}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-white">{item.usuario}</p>
+                        <p className="text-[11px] text-zinc-500">{item.lancamentos} lançamento(s)</p>
+                      </div>
+                    </div>
+                    <span className="whitespace-nowrap text-sm font-bold text-[#e50914]">
+                      {item.percentualLotes.toFixed(1).replace('.', ',')}% dos lotes
+                    </span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="rounded-md bg-zinc-950/70 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">Lotes únicos</p>
+                      <p className="mt-1 text-lg font-bold text-white">{item.lotesConferidos}</p>
+                    </div>
+                    <div className="rounded-md bg-zinc-950/70 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">Itens / Unidades</p>
+                      <p className="mt-1 text-lg font-bold text-white">{item.unidades}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                    <div
+                      className="h-full rounded-full bg-[#e50914] transition-all duration-500"
+                      style={{ width: `${Math.min(item.percentualLotes, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {/* ── Cards de totais ───────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

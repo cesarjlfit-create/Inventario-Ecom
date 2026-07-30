@@ -43,6 +43,7 @@ export type InventarioLancamento = {
   descricao: string
   lote: string
   quantidade: number
+  usuario: string
   sessao_id: string | null
   created_at: string
 }

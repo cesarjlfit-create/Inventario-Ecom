@@ -14,6 +14,17 @@ create table if not exists public.inventario_sessoes (
 alter table public.inventario_lancamentos
   add column if not exists sessao_id uuid references public.inventario_sessoes(id) on delete set null;
 
+alter table public.inventario_lancamentos
+  add column if not exists usuario text;
+
+update public.inventario_lancamentos
+set usuario = 'Usuário não identificado'
+where usuario is null or btrim(usuario) = '';
+
+alter table public.inventario_lancamentos
+  alter column usuario set default 'Usuário não identificado',
+  alter column usuario set not null;
+
 create index if not exists inventario_lancamentos_sessao_id_idx
   on public.inventario_lancamentos(sessao_id);
 
@@ -31,4 +42,16 @@ drop policy if exists "inventario_sessoes_update" on public.inventario_sessoes;
 create policy "inventario_sessoes_update"
   on public.inventario_sessoes for update using (true) with check (true);
 
-alter publication supabase_realtime add table public.inventario_sessoes;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'inventario_sessoes'
+  ) then
+    alter publication supabase_realtime add table public.inventario_sessoes;
+  end if;
+end
+$$;

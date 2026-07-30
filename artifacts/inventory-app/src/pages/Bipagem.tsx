@@ -45,9 +45,10 @@ function playBeep() {
 // ─── Componente principal ─────────────────────────────────────────────────────
 interface BipagemProps {
   activeSession: InventarioSessao
+  userName: string
 }
 
-export default function Bipagem({ activeSession }: BipagemProps) {
+export default function Bipagem({ activeSession, userName }: BipagemProps) {
   // Campos do formulário
   const [ean, setEan] = useState('')
   const [lote, setLote] = useState('')
@@ -232,6 +233,10 @@ export default function Bipagem({ activeSession }: BipagemProps) {
     const loteLimpo = lote.trim()
     const qtd = Number(quantidade)
 
+    if (!userName.trim()) {
+      toast.error('Informe seu Nome do Usuário antes de salvar')
+      return
+    }
     if (!eanLimpo) {
       toast.error('Digite ou bipe o código EAN')
       eanInputRef.current?.focus()
@@ -266,6 +271,7 @@ export default function Bipagem({ activeSession }: BipagemProps) {
         descricao,
         lote: loteLimpo,
         quantidade: qtd,
+        usuario: userName.trim(),
         sessao_id: activeSession.id,
       })
 

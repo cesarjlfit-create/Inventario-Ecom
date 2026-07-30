@@ -36,10 +36,12 @@ const NAV_CARDS = [
 // ─── Home screen ─────────────────────────────────────────────────────────────
 function HomeScreen({
   activeSession,
+  userName,
   onNavigate,
   onSessionClick,
 }: {
   activeSession: InventarioSessao | null
+  userName: string
   onNavigate: (view: View) => void
   onSessionClick: (mode?: 'create' | 'join') => void
 }) {
@@ -61,6 +63,7 @@ function HomeScreen({
 
       const dadosExport = data.map((l) => ({
         'Data/Hora': format(new Date(l.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR }),
+        'Usuário / Operador': l.usuario || 'Usuário não identificado',
         EAN: l.ean,
         SKU: l.sku || '',
         Descrição: l.descricao || '',
@@ -70,7 +73,7 @@ function HomeScreen({
 
       const ws = XLSX.utils.json_to_sheet(dadosExport)
       ws['!cols'] = [
-        { wch: 20 }, { wch: 16 }, { wch: 14 }, { wch: 36 }, { wch: 14 }, { wch: 12 },
+        { wch: 20 }, { wch: 24 }, { wch: 16 }, { wch: 14 }, { wch: 36 }, { wch: 14 }, { wch: 12 },
       ]
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Inventário')
@@ -97,6 +100,9 @@ function HomeScreen({
           Controle de Inventário
         </h2>
         <p className="text-sm text-zinc-500">Selecione uma opção para continuar</p>
+        {!userName.trim() && (
+          <p className="text-xs font-medium text-[#e50914]">Informe seu nome no canto superior direito para começar</p>
+        )}
       </motion.div>
 
       {/* Nav cards */}
@@ -204,11 +210,14 @@ function HomeScreen({
 function App() {
   const [activeView, setActiveView] = useState<View>('home')
   const [activeSession, setActiveSession] = useState<InventarioSessao | null>(null)
+  const [userName, setUserName] = useState('')
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false)
   const [sessionDialogMode, setSessionDialogMode] = useState<'create' | 'join'>('join')
   const [pendingView, setPendingView] = useState<Exclude<View, 'home'> | null>(null)
 
   useEffect(() => {
+    setUserName(localStorage.getItem('inventario_usuario') || '')
+
     const savedSession = localStorage.getItem('inventario_sessao_ativa')
     if (!savedSession) return
 
@@ -227,6 +236,13 @@ function App() {
     void carregarSessaoSalva()
   }, [])
 
+  const atualizarNomeUsuario = (value: string) => {
+    setUserName(value)
+    const nomeLimpo = value.trim()
+    if (nomeLimpo) localStorage.setItem('inventario_usuario', nomeLimpo)
+    else localStorage.removeItem('inventario_usuario')
+  }
+
   const selecionarSessao = (session: InventarioSessao) => {
     setActiveSession(session)
     localStorage.setItem('inventario_sessao_ativa', session.id)
@@ -238,7 +254,18 @@ function App() {
   }
 
   const navegarPara = (view: View) => {
-    if (view === 'home' || activeSession) {
+    if (view === 'home') {
+      setActiveView(view)
+      return
+    }
+
+    if (!userName.trim()) {
+      toast.error('Informe seu Nome do Usuário antes de continuar')
+      document.getElementById('nome-usuario')?.focus()
+      return
+    }
+
+    if (activeSession) {
       setActiveView(view)
       return
     }
@@ -274,17 +301,22 @@ function App() {
             onBack={() => setActiveView('home')}
             activeSession={activeSession}
             onSessionClick={abrirSessoes}
+            userName={userName}
+            onUserNameChange={atualizarNomeUsuario}
           />
 
           <main>
             {activeView === 'home' && (
               <HomeScreen
                 activeSession={activeSession}
+                userName={userName}
                 onNavigate={navegarPara}
                 onSessionClick={abrirSessoes}
               />
             )}
-            {activeView === 'bipagem' && activeSession && <Bipagem activeSession={activeSession} />}
+            {activeView === 'bipagem' && activeSession && (
+              <Bipagem activeSession={activeSession} userName={userName} />
+            )}
             {activeView === 'acompanhamento' && activeSession && (
               <Acompanhamento
                 activeSession={activeSession}
