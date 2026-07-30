@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react'
-import * as XLSX from 'xlsx'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster, toast } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { Barcode, Activity, FileDown, Loader2 } from 'lucide-react'
+import { Barcode, Activity, FileDown } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Header from '@/components/Header'
 import Bipagem from '@/pages/Bipagem'
 import Acompanhamento from '@/pages/Acompanhamento'
 import SessionDialog from '@/components/SessionDialog'
+import ExportDialog from '@/components/ExportDialog'
 import { supabase, type InventarioSessao } from '@/lib/supabase'
 
 const queryClient = new QueryClient()
@@ -45,48 +43,6 @@ function HomeScreen({
   onNavigate: (view: View) => void
   onSessionClick: (mode?: 'create' | 'join') => void
 }) {
-  const [isExporting, setIsExporting] = useState(false)
-
-  const exportarTodos = async () => {
-    setIsExporting(true)
-    try {
-      const { data, error } = await supabase
-        .from('inventario_lancamentos')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      if (!data || data.length === 0) {
-        toast.error('Nenhum lançamento para exportar')
-        return
-      }
-
-      const dadosExport = data.map((l) => ({
-        'Data/Hora': format(new Date(l.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR }),
-        'Usuário / Operador': l.usuario || 'Usuário não identificado',
-        EAN: l.ean,
-        SKU: l.sku || '',
-        Descrição: l.descricao || '',
-        Lote: l.lote,
-        Quantidade: Number(l.quantidade),
-      }))
-
-      const ws = XLSX.utils.json_to_sheet(dadosExport)
-      ws['!cols'] = [
-        { wch: 20 }, { wch: 24 }, { wch: 16 }, { wch: 14 }, { wch: 36 }, { wch: 14 }, { wch: 12 },
-      ]
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Inventário')
-      const nomeArquivo = `inventario_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`
-      XLSX.writeFile(wb, nomeArquivo)
-      toast.success(`"${nomeArquivo}" baixado com sucesso — ${data.length} registros`)
-    } catch (err: any) {
-      toast.error('Erro ao exportar: ' + (err.message || 'Tente novamente'))
-    } finally {
-      setIsExporting(false)
-    }
-  }
-
   return (
     <div className="min-h-[calc(100dvh-3.5rem)] flex flex-col items-center justify-center px-4 py-12">
       {/* Hero text */}
@@ -175,24 +131,18 @@ function HomeScreen({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: NAV_CARDS.length * 0.08 }}
-          onClick={exportarTodos}
-          disabled={isExporting}
+          onClick={() => onSessionClick()}
           className="group w-full flex items-center gap-4 bg-zinc-900 border border-zinc-800 rounded-xl p-5
                      hover:border-[#e50914]/60 hover:bg-zinc-900/90 transition-all duration-200
-                     hover:shadow-[0_0_20px_rgba(229,9,20,0.18)] text-left
-                     disabled:opacity-60 disabled:cursor-not-allowed"
+                     hover:shadow-[0_0_20px_rgba(229,9,20,0.18)] text-left"
         >
           <div className="flex-shrink-0 h-12 w-12 rounded-xl bg-[#e50914]/10 border border-[#e50914]/20 flex items-center justify-center
                           group-hover:bg-[#e50914]/20 group-hover:border-[#e50914]/40 transition-all duration-200">
-            {isExporting ? (
-              <Loader2 className="h-6 w-6 text-[#e50914] animate-spin" />
-            ) : (
-              <FileDown className="h-6 w-6 text-[#e50914]" />
-            )}
+            <FileDown className="h-6 w-6 text-[#e50914]" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-base font-semibold text-white">Exportar Relatório Excel</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Baixe todos os lançamentos em .xlsx</p>
+            <p className="text-xs text-zinc-500 mt-0.5">Escolha uma sala e baixe seu relatório .xlsx</p>
           </div>
           <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center
                           group-hover:bg-[#e50914] group-hover:border-[#e50914] transition-all duration-200">
@@ -213,6 +163,7 @@ function App() {
   const [userName, setUserName] = useState('')
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false)
   const [sessionDialogMode, setSessionDialogMode] = useState<'create' | 'join'>('join')
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [pendingView, setPendingView] = useState<Exclude<View, 'home'> | null>(null)
 
   useEffect(() => {
@@ -281,6 +232,10 @@ function App() {
     setSessionDialogOpen(true)
   }
 
+  const abrirExportacao = () => {
+    setExportDialogOpen(true)
+  }
+
   const atualizarSessao = (session: InventarioSessao) => {
     if (session.status === 'finalizado') {
       setActiveSession(null)
@@ -311,7 +266,10 @@ function App() {
                 activeSession={activeSession}
                 userName={userName}
                 onNavigate={navegarPara}
-                onSessionClick={abrirSessoes}
+                onSessionClick={(mode) => {
+                  if (mode) abrirSessoes(mode)
+                  else abrirExportacao()
+                }}
               />
             )}
             {activeView === 'bipagem' && activeSession && (
@@ -332,6 +290,11 @@ function App() {
           initialMode={sessionDialogMode}
           onOpenChange={setSessionDialogOpen}
           onSessionSelected={selecionarSessao}
+        />
+
+        <ExportDialog
+          open={exportDialogOpen}
+          onOpenChange={setExportDialogOpen}
         />
 
         <Toaster
