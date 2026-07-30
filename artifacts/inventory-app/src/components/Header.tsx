@@ -1,4 +1,5 @@
 import { ChevronLeft } from 'lucide-react'
+import type { InventarioSessao } from '@/lib/supabase'
 
 type View = 'home' | 'bipagem' | 'acompanhamento'
 
@@ -10,9 +11,11 @@ const VIEW_LABELS: Record<Exclude<View, 'home'>, string> = {
 interface HeaderProps {
   activeView: View
   onBack: () => void
+  activeSession: InventarioSessao | null
+  onSessionClick: () => void
 }
 
-export default function Header({ activeView, onBack }: HeaderProps) {
+export default function Header({ activeView, onBack, activeSession, onSessionClick }: HeaderProps) {
   const isHome = activeView === 'home'
 
   return (
@@ -43,9 +46,19 @@ export default function Header({ activeView, onBack }: HeaderProps) {
 
         {/* Section label — right side on mobile, shown only inside sections */}
         {!isHome && (
-          <span className="absolute right-4 text-xs text-zinc-500 hidden sm:block truncate max-w-[140px]">
-            {VIEW_LABELS[activeView as Exclude<View, 'home'>]}
-          </span>
+          <button
+            type="button"
+            onClick={onSessionClick}
+            className="absolute right-3 flex max-w-[210px] items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2.5 py-1.5 text-left transition-colors hover:border-[#e50914]/50"
+            title="Trocar sessão ativa"
+          >
+            <span className="hidden text-[10px] uppercase tracking-wide text-zinc-500 sm:block">
+              {VIEW_LABELS[activeView as Exclude<View, 'home'>]}
+            </span>
+            <span className="truncate font-mono text-xs font-bold text-[#e50914]">
+              {activeSession?.codigo || 'Selecionar sala'}
+            </span>
+          </button>
         )}
       </div>
     </header>

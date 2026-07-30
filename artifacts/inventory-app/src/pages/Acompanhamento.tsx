@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import * as XLSX from 'xlsx'
-import { supabase, type InventarioLancamento } from '@/lib/supabase'
+import { supabase, type InventarioLancamento, type InventarioSessao } from '@/lib/supabase'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -18,6 +18,9 @@ import {
   Hash,
   Loader2,
   AlertTriangle,
+  History,
+  DoorOpen,
+  CircleCheck,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -44,12 +47,29 @@ type EditingState = {
   quantidade: string
 }
 
+type AcompanhamentoMode = 'sala' | 'historico'
+
+interface AcompanhamentoProps {
+  activeSession: InventarioSessao
+  onSessionSelected: (session: InventarioSessao) => void
+  onSessionUpdated: (session: InventarioSessao) => void
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
-export default function Acompanhamento() {
+export default function Acompanhamento({
+  activeSession,
+  onSessionSelected,
+  onSessionUpdated,
+}: AcompanhamentoProps) {
   // Dados
   const [lancamentos, setLancamentos] = useState<InventarioLancamento[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRealtimeOn, setIsRealtimeOn] = useState(false)
+  const [mode, setMode] = useState<AcompanhamentoMode>('sala')
+  const [sessoes, setSessoes] = useState<InventarioSessao[]>([])
+  const [sessionSearch, setSessionSearch] = useState('')
+  const [isLoadingSessoes, setIsLoadingSessoes] = useState(false)
+  const [finishingId, setFinishingId] = useState<string | null>(null)
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState('')
@@ -83,6 +103,26 @@ export default function Acompanhamento() {
     }
 
     carregar()
+  }, [])
+
+  useEffect(() => {
+    const carregarSessoes = async () => {
+      setIsLoadingSessoes(true)
+      try {
+        const { data, error } = await supabase
+          .from('inventario_sessoes')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        setSessoes((data || []) as InventarioSessao[])
+      } catch (err: any) {
+        toast.error('Erro ao carregar histórico: ' + (err.message || 'Tente novamente'))
+      } finally {
+        setIsLoadingSessoes(false)
+      }
+    }
+
+    void carregarSessoes()
   }, [])
 
   // ─── Realtime: INSERT, UPDATE, DELETE ────────────────────────────────────────
@@ -128,16 +168,84 @@ export default function Acompanhamento() {
     }
   }, [])
 
+  const lancamentosDaSala = useMemo(
+    () => lancamentos.filter((lancamento) => lancamento.sessao_id === activeSession.id),
+    [lancamentos, activeSession.id],
+  )
+
+  const sessoesFiltradas = useMemo(() => {
+    const termo = sessionSearch.trim().toLowerCase()
+    if (!termo) return sessoes
+    return sessoes.filter(
+      (sessao) =>
+        sessao.codigo.toLowerCase().includes(termo) ||
+        sessao.titulo.toLowerCase().includes(termo),
+    )
+  }, [sessoes, sessionSearch])
+
+  const exportarSessao = (sessao: InventarioSessao) => {
+    const itens = lancamentos.filter((lancamento) => lancamento.sessao_id === sessao.id)
+    if (itens.length === 0) {
+      toast.error('Este inventário ainda não possui itens para exportar')
+      return
+    }
+
+    const dadosExport = itens.map((item) => ({
+      'Código da Sala': sessao.codigo,
+      'Título do Inventário': sessao.titulo,
+      'Data/Hora': format(new Date(item.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR }),
+      EAN: item.ean,
+      SKU: item.sku || '',
+      Descrição: item.descricao || '',
+      Lote: item.lote,
+      Quantidade: Number(item.quantidade),
+    }))
+    const ws = XLSX.utils.json_to_sheet(dadosExport)
+    ws['!cols'] = [
+      { wch: 18 }, { wch: 32 }, { wch: 20 }, { wch: 16 },
+      { wch: 14 }, { wch: 42 }, { wch: 14 }, { wch: 12 },
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventário')
+    const nomeArquivo = `${sessao.codigo.toLowerCase()}_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`
+    XLSX.writeFile(wb, nomeArquivo)
+    toast.success(`Arquivo "${nomeArquivo}" baixado com sucesso`)
+  }
+
+  const finalizarInventario = async (sessao: InventarioSessao) => {
+    if (sessao.status === 'finalizado') return
+    setFinishingId(sessao.id)
+    try {
+      const finalizadoAt = new Date().toISOString()
+      const { data, error } = await supabase
+        .from('inventario_sessoes')
+        .update({ status: 'finalizado', finalizado_at: finalizadoAt })
+        .eq('id', sessao.id)
+        .select('*')
+        .single()
+
+      if (error) throw error
+      const atualizada = data as InventarioSessao
+      setSessoes((prev) => prev.map((item) => item.id === atualizada.id ? atualizada : item))
+      toast.success(`Inventário ${atualizada.codigo} finalizado`)
+      if (atualizada.id === activeSession.id) onSessionUpdated(atualizada)
+    } catch (err: any) {
+      toast.error('Erro ao finalizar inventário: ' + (err.message || 'Tente novamente'))
+    } finally {
+      setFinishingId(null)
+    }
+  }
+
   // ─── Lotes únicos para o dropdown ────────────────────────────────────────────
   const lotesUnicos = useMemo(() => {
-    const set = new Set(lancamentos.map((l) => l.lote).filter(Boolean))
+    const set = new Set(lancamentosDaSala.map((l) => l.lote).filter(Boolean))
     return Array.from(set).sort()
-  }, [lancamentos])
+  }, [lancamentosDaSala])
 
   // ─── Filtragem ────────────────────────────────────────────────────────────────
   const filtrados = useMemo(() => {
     const termo = searchTerm.toLowerCase()
-    return lancamentos.filter((l) => {
+    return lancamentosDaSala.filter((l) => {
       const matchSearch =
         !termo ||
         l.ean.toLowerCase().includes(termo) ||
@@ -146,7 +254,7 @@ export default function Acompanhamento() {
       const matchLote = loteFilter === 'all' || l.lote === loteFilter
       return matchSearch && matchLote
     })
-  }, [lancamentos, searchTerm, loteFilter])
+  }, [lancamentosDaSala, searchTerm, loteFilter])
 
   // ─── Totais dos filtrados ────────────────────────────────────────────────────
   const totalItens = filtrados.length
@@ -255,10 +363,163 @@ export default function Acompanhamento() {
     toast.success(`Arquivo "${nomeArquivo}" baixado com sucesso`)
   }
 
+  const seletorVisao = (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-card-border bg-card p-3">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Acompanhamento</p>
+        <p className="mt-1 text-sm text-foreground">
+          {mode === 'sala' ? `Itens da sala ${activeSession.codigo}` : 'Histórico de inventários'}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-1 rounded-lg bg-zinc-950 p-1">
+        <button
+          type="button"
+          onClick={() => setMode('sala')}
+          className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
+            mode === 'sala' ? 'bg-[#e50914] text-white' : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Package className="h-3.5 w-3.5" />
+          Sala selecionada
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('historico')}
+          className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
+            mode === 'historico' ? 'bg-[#e50914] text-white' : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <History className="h-3.5 w-3.5" />
+          Histórico
+        </button>
+      </div>
+    </div>
+  )
+
+  if (mode === 'historico') {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] p-3 pb-10">
+        <div className="mx-auto max-w-7xl space-y-4">
+          {seletorVisao}
+          <div className="rounded-xl border border-card-border bg-card p-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={sessionSearch}
+                onChange={(event) => setSessionSearch(event.target.value)}
+                placeholder="Buscar por código ATV-XXXX ou título do inventário…"
+                className="h-10 pl-9"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-card-border bg-card">
+            <div className="flex items-center justify-between border-b border-card-border px-4 py-3">
+              <div>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+                  Histórico de Inventários
+                </h2>
+                <p className="mt-1 text-xs text-zinc-500">{sessoesFiltradas.length} sala(s) encontrada(s)</p>
+              </div>
+              {isLoadingSessoes && <Loader2 className="h-4 w-4 animate-spin text-[#e50914]" />}
+            </div>
+
+            {sessoesFiltradas.length === 0 ? (
+              <div className="py-16 text-center text-sm text-muted-foreground">
+                <History className="mx-auto mb-3 h-10 w-10 opacity-30" />
+                Nenhum inventário encontrado.
+              </div>
+            ) : (
+              <div className="divide-y divide-card-border/60">
+                {sessoesFiltradas.map((sessao) => {
+                  const itens = lancamentos.filter((item) => item.sessao_id === sessao.id)
+                  const quantidadeTotal = itens.reduce((total, item) => total + Number(item.quantidade), 0)
+                  const isCurrent = sessao.id === activeSession.id
+
+                  return (
+                    <div key={sessao.id} className="p-4 transition-colors hover:bg-muted/10">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-sm font-bold text-[#e50914]">{sessao.codigo}</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                              sessao.status === 'em_andamento'
+                                ? 'bg-green-500/10 text-green-400'
+                                : 'bg-zinc-700/50 text-zinc-400'
+                            }`}>
+                              {sessao.status === 'em_andamento' ? 'Em andamento' : 'Finalizado'}
+                            </span>
+                            {isCurrent && (
+                              <span className="rounded-full bg-[#e50914]/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-[#e50914]">
+                                Sala atual
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-base font-semibold text-white">{sessao.titulo}</p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            Criado em {format(new Date(sessao.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                            {' · '}
+                            <span className="text-zinc-300">{itens.length} itens bipados</span>
+                            {' · '}
+                            <span className="text-zinc-300">{quantidadeTotal} unidades</span>
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {sessao.status === 'em_andamento' && !isCurrent && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => onSessionSelected(sessao)}
+                              className="gap-1.5 border-[#e50914]/40 text-[#e50914] hover:bg-[#e50914]/10"
+                            >
+                              <DoorOpen className="h-3.5 w-3.5" />
+                              Entrar na Sala
+                            </Button>
+                          )}
+                          {sessao.status === 'em_andamento' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void finalizarInventario(sessao)}
+                              disabled={finishingId === sessao.id}
+                              className="gap-1.5 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                            >
+                              {finishingId === sessao.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <CircleCheck className="h-3.5 w-3.5" />
+                              )}
+                              Finalizar Inventário
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => exportarSessao(sessao)}
+                            className="gap-1.5 border-zinc-700 text-zinc-300 hover:border-[#e50914]/50 hover:text-white"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Exportar .xlsx
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-[calc(100vh-4rem)] p-3 pb-10">
       <div className="max-w-7xl mx-auto space-y-4">
+        {seletorVisao}
 
         {/* ── Cards de totais ───────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

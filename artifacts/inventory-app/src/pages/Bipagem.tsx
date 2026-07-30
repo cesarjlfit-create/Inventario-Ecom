@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
-import { supabase, type ProdutoBase, type InventarioLancamento } from '@/lib/supabase'
+import { supabase, type ProdutoBase, type InventarioLancamento, type InventarioSessao } from '@/lib/supabase'
 import { toast } from 'sonner'
 import {
   Barcode,
@@ -43,7 +43,11 @@ function playBeep() {
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
-export default function Bipagem() {
+interface BipagemProps {
+  activeSession: InventarioSessao
+}
+
+export default function Bipagem({ activeSession }: BipagemProps) {
   // Campos do formulário
   const [ean, setEan] = useState('')
   const [lote, setLote] = useState('')
@@ -83,6 +87,7 @@ export default function Bipagem() {
         const { data, error } = await supabase
           .from('inventario_lancamentos')
           .select('*')
+          .eq('sessao_id', activeSession.id)
           .order('created_at', { ascending: false })
           .limit(8)
         if (error) throw error
@@ -100,7 +105,12 @@ export default function Bipagem() {
       .channel('inventario-lancamentos-changes')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'inventario_lancamentos' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'inventario_lancamentos',
+          filter: `sessao_id=eq.${activeSession.id}`,
+        },
         (payload) => {
           setUltimosLancamentos((prev) =>
             [payload.new as InventarioLancamento, ...prev].slice(0, 8)
@@ -112,7 +122,7 @@ export default function Bipagem() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [activeSession.id])
 
   // ─── Buscar produto na tabela produtos_base ───────────────────────────────────
   const buscarProduto = useCallback(async (eanValue: string) => {
@@ -256,6 +266,7 @@ export default function Bipagem() {
         descricao,
         lote: loteLimpo,
         quantidade: qtd,
+        sessao_id: activeSession.id,
       })
 
       if (error) throw error
@@ -330,6 +341,19 @@ export default function Bipagem() {
           onSubmit={handleSalvar}
           className="bg-card border border-card-border rounded-xl p-5 space-y-5"
         >
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#e50914]/25 bg-[#e50914]/5 px-4 py-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#e50914]">Inventário Ativo</p>
+              <p className="mt-0.5 text-sm font-semibold text-white">
+                <span className="font-mono text-[#e50914]">{activeSession.codigo}</span>
+                <span className="mx-2 text-zinc-600">·</span>
+                {activeSession.titulo}
+              </p>
+            </div>
+            <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-green-400">
+              Em andamento
+            </span>
+          </div>
           {/* Campo EAN */}
           <div className="space-y-2">
             <Label htmlFor="ean" className="text-sm font-semibold text-foreground/80 uppercase tracking-wide">

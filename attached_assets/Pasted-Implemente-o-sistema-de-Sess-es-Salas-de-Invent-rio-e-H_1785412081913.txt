@@ -1,0 +1,22 @@
+Implemente o sistema de Sessões/Salas de Inventário e Histórico de Inventários na aplicação, mantendo o layout Dark Mode existente.
+
+1. Lógica de Gerador de Código de Sala:
+   - Crie uma função auxiliar que gera códigos aleatórios no formato "ATV-XXXX" (onde XXXX é uma combinação aleatória de 4 caracteres alfanuméricos em maiúsculas, ex: ATV-9K2P).
+
+2. Tela Inicial / Modais de Seleção de Sala:
+   - Adicione um seletor de "Sessão Ativa" no topo ou como tela inicial antes de iniciar a bipagem.
+   - Botão "Criar Novo Inventário": abre um modal pedindo apenas o "Título do Inventário" (ex: "Inventário Geral Julho/2026"). Ao salvar, gera o código "ATV-XXXX", salva na tabela 'inventario_sessoes' com status 'em_andamento' e seleciona essa sala automaticamente.
+   - Botão "Entrar em uma Sala": permite selecionar uma sala 'em_andamento' da lista ou buscar pelo código "ATV-XXXX".
+   - Indique na tela de Bipagem qual sala está atualmente ativa (ex: "Inventário Ativo: ATV-9K2P - Estoque Geral").
+
+3. Vínculo dos Lançamentos:
+   - Todos os novos lançamentos de bipagem feitos na Tela 1 devem gravar a coluna 'sessao_id' com o ID da sessão atualmente selecionada.
+
+4. Tela de Acompanhamento Realtime & Histórico de Inventários:
+   - Adicione um painel/filtro superior para alternar entre "Ver Histórico de Inventários" e "Ver Itens da Sala Selecionada".
+   - Na visão de Histórico de Inventários:
+     * Tabela/Cards com: Código (ATV-XXXX), Título, Data de Criação, Total de Itens Bipados, Status ("Em Andamento" com badge verde ou "Finalizado" com badge cinza/vermelho) e Ações.
+     * Campo de busca para filtrar inventários especificamente pelo Código "ATV-XXXX" ou pelo Título.
+     * Botão de Ação "Entrar na Sala" (para salas em andamento).
+     * Botão de Ação "Finalizar Inventário" (altera o status no Supabase de 'em_andamento' para 'finalizado').
+     * Botão "Exportar .xlsx deste Inventário": baixa a planilha contendo apenas os itens lançados dentro daquele código de sala específico.

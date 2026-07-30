@@ -43,5 +43,17 @@ export type InventarioLancamento = {
   descricao: string
   lote: string
   quantidade: number
+  sessao_id: string | null
   created_at: string
+}
+
+export type StatusSessao = 'em_andamento' | 'finalizado'
+
+export type InventarioSessao = {
+  id: string
+  codigo: string
+  titulo: string
+  status: StatusSessao
+  created_at: string
+  finalizado_at: string | null
 }

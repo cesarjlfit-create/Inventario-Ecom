@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -10,7 +10,8 @@ import { motion } from 'framer-motion'
 import Header from '@/components/Header'
 import Bipagem from '@/pages/Bipagem'
 import Acompanhamento from '@/pages/Acompanhamento'
-import { supabase } from '@/lib/supabase'
+import SessionDialog from '@/components/SessionDialog'
+import { supabase, type InventarioSessao } from '@/lib/supabase'
 
 const queryClient = new QueryClient()
 
@@ -33,7 +34,15 @@ const NAV_CARDS = [
 ] as const
 
 // ─── Home screen ─────────────────────────────────────────────────────────────
-function HomeScreen({ onNavigate }: { onNavigate: (view: View) => void }) {
+function HomeScreen({
+  activeSession,
+  onNavigate,
+  onSessionClick,
+}: {
+  activeSession: InventarioSessao | null
+  onNavigate: (view: View) => void
+  onSessionClick: (mode?: 'create' | 'join') => void
+}) {
   const [isExporting, setIsExporting] = useState(false)
 
   const exportarTodos = async () => {
@@ -92,6 +101,38 @@ function HomeScreen({ onNavigate }: { onNavigate: (view: View) => void }) {
 
       {/* Nav cards */}
       <div className="w-full max-w-lg space-y-3">
+        {activeSession && (
+          <button
+            type="button"
+            onClick={() => onSessionClick('join')}
+            className="mb-2 flex w-full items-center justify-between gap-3 rounded-xl border border-[#e50914]/30 bg-[#e50914]/5 p-4 text-left transition-colors hover:border-[#e50914]/60"
+          >
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#e50914]">Sessão ativa</p>
+              <p className="mt-1 truncate text-sm font-semibold text-white">{activeSession.titulo}</p>
+              <p className="mt-0.5 font-mono text-xs text-[#e50914]">{activeSession.codigo}</p>
+            </div>
+            <span className="flex-shrink-0 rounded-full bg-green-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase text-green-400">
+              Em andamento
+            </span>
+          </button>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => onSessionClick('create')}
+            className="rounded-xl border border-[#e50914]/40 bg-[#e50914]/10 px-3 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e50914]/20"
+          >
+            Criar Novo Inventário
+          </button>
+          <button
+            type="button"
+            onClick={() => onSessionClick('join')}
+            className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-3 text-sm font-semibold text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+          >
+            Entrar em uma Sala
+          </button>
+        </div>
         {NAV_CARDS.map((card, i) => {
           const Icon = card.icon
           return (
@@ -162,21 +203,104 @@ function HomeScreen({ onNavigate }: { onNavigate: (view: View) => void }) {
 // ─── Root ─────────────────────────────────────────────────────────────────────
 function App() {
   const [activeView, setActiveView] = useState<View>('home')
+  const [activeSession, setActiveSession] = useState<InventarioSessao | null>(null)
+  const [sessionDialogOpen, setSessionDialogOpen] = useState(false)
+  const [sessionDialogMode, setSessionDialogMode] = useState<'create' | 'join'>('join')
+  const [pendingView, setPendingView] = useState<Exclude<View, 'home'> | null>(null)
+
+  useEffect(() => {
+    const savedSession = localStorage.getItem('inventario_sessao_ativa')
+    if (!savedSession) return
+
+    const carregarSessaoSalva = async () => {
+      const { data } = await supabase
+        .from('inventario_sessoes')
+        .select('*')
+        .eq('id', savedSession)
+        .eq('status', 'em_andamento')
+        .maybeSingle()
+
+      if (data) setActiveSession(data as InventarioSessao)
+      else localStorage.removeItem('inventario_sessao_ativa')
+    }
+
+    void carregarSessaoSalva()
+  }, [])
+
+  const selecionarSessao = (session: InventarioSessao) => {
+    setActiveSession(session)
+    localStorage.setItem('inventario_sessao_ativa', session.id)
+    setSessionDialogOpen(false)
+    if (pendingView) {
+      setActiveView(pendingView)
+      setPendingView(null)
+    }
+  }
+
+  const navegarPara = (view: View) => {
+    if (view === 'home' || activeSession) {
+      setActiveView(view)
+      return
+    }
+
+    setPendingView(view)
+    setSessionDialogMode('join')
+    setSessionDialogOpen(true)
+  }
+
+  const abrirSessoes = (mode: 'create' | 'join' = 'join') => {
+    setPendingView(null)
+    setSessionDialogMode(mode)
+    setSessionDialogOpen(true)
+  }
+
+  const atualizarSessao = (session: InventarioSessao) => {
+    if (session.status === 'finalizado') {
+      setActiveSession(null)
+      localStorage.removeItem('inventario_sessao_ativa')
+      setActiveView('home')
+    } else {
+      setActiveSession(session)
+      localStorage.setItem('inventario_sessao_ativa', session.id)
+    }
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <div className="min-h-[100dvh] bg-[#0a0a0a] text-white">
-          <Header activeView={activeView} onBack={() => setActiveView('home')} />
+          <Header
+            activeView={activeView}
+            onBack={() => setActiveView('home')}
+            activeSession={activeSession}
+            onSessionClick={abrirSessoes}
+          />
 
           <main>
             {activeView === 'home' && (
-              <HomeScreen onNavigate={setActiveView} />
+              <HomeScreen
+                activeSession={activeSession}
+                onNavigate={navegarPara}
+                onSessionClick={abrirSessoes}
+              />
             )}
-            {activeView === 'bipagem' && <Bipagem />}
-            {activeView === 'acompanhamento' && <Acompanhamento />}
+            {activeView === 'bipagem' && activeSession && <Bipagem activeSession={activeSession} />}
+            {activeView === 'acompanhamento' && activeSession && (
+              <Acompanhamento
+                activeSession={activeSession}
+                onSessionSelected={selecionarSessao}
+                onSessionUpdated={atualizarSessao}
+              />
+            )}
           </main>
         </div>
+
+        <SessionDialog
+          open={sessionDialogOpen}
+          initialMode={sessionDialogMode}
+          onOpenChange={setSessionDialogOpen}
+          onSessionSelected={selecionarSessao}
+        />
 
         <Toaster
           position="top-center"
