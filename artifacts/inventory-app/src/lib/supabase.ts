@@ -45,6 +45,9 @@ export type InventarioLancamento = {
   quantidade: number
   usuario: string
   sessao_id: string | null
+  tratado?: boolean | null
+  tratado_por?: string | null
+  tratado_at?: string | null
   created_at: string
 }
 

@@ -111,6 +111,9 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
         Descrição: item.descricao || '',
         Lote: item.lote,
         Quantidade: Number(item.quantidade),
+        Tratado: item.tratado ? 'Sim' : 'Não',
+        'Tratado por': item.tratado_por || '',
+        'Tratado em': item.tratado_at ? format(new Date(item.tratado_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
       }))
 
       const worksheet = XLSX.utils.json_to_sheet(dadosExport)
@@ -124,6 +127,9 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
         { wch: 42 },
         { wch: 14 },
         { wch: 12 },
+        { wch: 10 },
+        { wch: 24 },
+        { wch: 18 },
       ]
 
       const workbook = XLSX.utils.book_new()

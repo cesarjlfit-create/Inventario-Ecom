@@ -23,6 +23,8 @@ import {
   CircleCheck,
   Trophy,
   UserRound,
+  CheckCheck,
+  ListChecks,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -51,8 +53,11 @@ type EditingState = {
 
 type AcompanhamentoMode = 'sala' | 'historico'
 
+type TratadoFilter = 'all' | 'pendentes' | 'tratados'
+
 interface AcompanhamentoProps {
   activeSession: InventarioSessao
+  userName?: string
   onSessionSelected: (session: InventarioSessao) => void
   onSessionUpdated: (session: InventarioSessao) => void
 }
@@ -60,6 +65,7 @@ interface AcompanhamentoProps {
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function Acompanhamento({
   activeSession,
+  userName = '',
   onSessionSelected,
   onSessionUpdated,
 }: AcompanhamentoProps) {
@@ -76,6 +82,10 @@ export default function Acompanhamento({
   // Filtros
   const [searchTerm, setSearchTerm] = useState('')
   const [loteFilter, setLoteFilter] = useState('all')
+  const [tratadoFilter, setTratadoFilter] = useState<TratadoFilter>('all')
+
+  // Marcação de tratado
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set())
 
   // Edição inline
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -237,11 +247,13 @@ export default function Acompanhamento({
       Descrição: item.descricao || '',
       Lote: item.lote,
       Quantidade: Number(item.quantidade),
+      Tratado: item.tratado ? 'Sim' : 'Não',
+      'Tratado por': item.tratado_por || '',
     }))
     const ws = XLSX.utils.json_to_sheet(dadosExport)
     ws['!cols'] = [
       { wch: 18 }, { wch: 32 }, { wch: 20 }, { wch: 24 }, { wch: 16 },
-      { wch: 14 }, { wch: 42 }, { wch: 14 }, { wch: 12 },
+      { wch: 14 }, { wch: 42 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 24 },
     ]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Inventário')
@@ -307,9 +319,68 @@ export default function Acompanhamento({
         l.sku.toLowerCase().includes(termo) ||
         l.descricao.toLowerCase().includes(termo)
       const matchLote = loteFilter === 'all' || l.lote === loteFilter
-      return matchSearch && matchLote
+      const matchTratado =
+        tratadoFilter === 'all' ||
+        (tratadoFilter === 'tratados' ? !!l.tratado : !l.tratado)
+      return matchSearch && matchLote && matchTratado
     })
-  }, [lancamentosDaSala, searchTerm, loteFilter])
+  }, [lancamentosDaSala, searchTerm, loteFilter, tratadoFilter])
+
+  const totalTratadosSala = useMemo(
+    () => lancamentosDaSala.filter((l) => l.tratado).length,
+    [lancamentosDaSala]
+  )
+  const percentualTratados =
+    lancamentosDaSala.length > 0 ? (totalTratadosSala / lancamentosDaSala.length) * 100 : 0
+
+  // ─── Marcar / desmarcar como tratado ─────────────────────────────────────────
+  const alternarTratado = async (lancamento: InventarioLancamento) => {
+    if (togglingIds.has(lancamento.id)) return
+    const novoValor = !lancamento.tratado
+    const alteracao = {
+      tratado: novoValor,
+      tratado_por: novoValor ? (userName.trim() || 'Usuário não identificado') : null,
+      tratado_at: novoValor ? new Date().toISOString() : null,
+    }
+    const anterior = {
+      tratado: lancamento.tratado ?? false,
+      tratado_por: lancamento.tratado_por ?? null,
+      tratado_at: lancamento.tratado_at ?? null,
+    }
+
+    // Atualização otimista: o check aparece na hora
+    setTogglingIds((prev) => new Set(prev).add(lancamento.id))
+    setLancamentos((prev) => prev.map((l) => (l.id === lancamento.id ? { ...l, ...alteracao } : l)))
+
+    try {
+      const { error } = await supabase
+        .from('inventario_lancamentos')
+        .update(alteracao)
+        .eq('id', lancamento.id)
+      if (error) throw error
+    } catch (err: any) {
+      setLancamentos((prev) => prev.map((l) => (l.id === lancamento.id ? { ...l, ...anterior } : l)))
+      const msg = err?.message || ''
+      if (/tratado|schema cache|column/i.test(msg)) {
+        toast.error('A coluna "tratado" ainda não existe no banco. Execute o script supabase-tratado.sql no Supabase.')
+      } else {
+        toast.error('Erro ao marcar lançamento: ' + (msg || 'Tente novamente'))
+      }
+    } finally {
+      setTogglingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(lancamento.id)
+        return next
+      })
+    }
+  }
+
+  const tituloTratado = (l: InventarioLancamento) =>
+    l.tratado
+      ? `Tratado${l.tratado_por ? ` por ${l.tratado_por}` : ''}${
+          l.tratado_at ? ` em ${format(new Date(l.tratado_at), 'dd/MM HH:mm', { locale: ptBR })}` : ''
+        } — clique para desmarcar`
+      : 'Marcar como tratado'
 
   // ─── Totais dos filtrados ────────────────────────────────────────────────────
   const totalItens = filtrados.length
@@ -397,6 +468,9 @@ export default function Acompanhamento({
       Descrição: l.descricao || '',
       Lote: l.lote,
       Quantidade: Number(l.quantidade),
+      Tratado: l.tratado ? 'Sim' : 'Não',
+      'Tratado por': l.tratado_por || '',
+      'Tratado em': l.tratado_at ? format(new Date(l.tratado_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
     }))
 
     const ws = XLSX.utils.json_to_sheet(dadosExport)
@@ -410,6 +484,9 @@ export default function Acompanhamento({
       { wch: 36 }, // Descrição
       { wch: 14 }, // Lote
       { wch: 12 }, // Quantidade
+      { wch: 10 }, // Tratado
+      { wch: 24 }, // Tratado por
+      { wch: 18 }, // Tratado em
     ]
 
     const wb = XLSX.utils.book_new()
@@ -650,7 +727,7 @@ export default function Acompanhamento({
         </section>
 
         {/* ── Cards de totais ───────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="bg-card border border-card-border rounded-xl p-4" data-testid="card-total-itens">
             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Itens Contados</p>
             <p className="text-3xl font-bold">{totalItens}</p>
@@ -659,7 +736,22 @@ export default function Acompanhamento({
             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Soma das Qtd.</p>
             <p className="text-3xl font-bold text-primary">{somaQuantidades}</p>
           </div>
-          <div className="col-span-2 bg-card border border-card-border rounded-xl p-4 flex items-center justify-between" data-testid="card-realtime">
+          <div className="bg-card border border-green-500/20 rounded-xl p-4" data-testid="card-tratados">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1.5">
+              <ListChecks className="h-3.5 w-3.5 text-green-400" /> Tratados
+            </p>
+            <p className="text-3xl font-bold text-green-400">
+              {totalTratadosSala}
+              <span className="text-base font-medium text-muted-foreground">/{lancamentosDaSala.length}</span>
+            </p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-green-500 transition-all duration-500"
+                style={{ width: `${percentualTratados}%` }}
+              />
+            </div>
+          </div>
+          <div className="bg-card border border-card-border rounded-xl p-4 flex items-center justify-between" data-testid="card-realtime">
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Status</p>
               <p className="text-sm font-semibold">
@@ -707,6 +799,18 @@ export default function Acompanhamento({
               </SelectContent>
             </Select>
 
+            {/* Filtro por status de tratamento */}
+            <Select value={tratadoFilter} onValueChange={(v) => setTratadoFilter(v as TratadoFilter)}>
+              <SelectTrigger className="h-10 w-full sm:w-44" data-testid="select-tratado">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os status</SelectItem>
+                <SelectItem value="pendentes">Pendentes</SelectItem>
+                <SelectItem value="tratados">Tratados</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Exportar */}
             <Button
               variant="outline"
@@ -722,7 +826,7 @@ export default function Acompanhamento({
           </div>
 
           {/* Contador filtrado */}
-          {(searchTerm || loteFilter !== 'all') && (
+          {(searchTerm || loteFilter !== 'all' || tratadoFilter !== 'all') && (
             <p className="text-xs text-muted-foreground mt-3">
               Exibindo <span className="font-semibold text-foreground">{totalItens}</span> registro(s)
               {' — '}soma de quantidades: <span className="font-semibold text-primary">{somaQuantidades}</span>
@@ -753,10 +857,10 @@ export default function Acompanhamento({
             <div className="text-center py-16 text-muted-foreground">
               <Clock className="h-10 w-10 mx-auto mb-3 opacity-30" />
               <p className="text-sm">Nenhum lançamento encontrado</p>
-              {(searchTerm || loteFilter !== 'all') && (
+              {(searchTerm || loteFilter !== 'all' || tratadoFilter !== 'all') && (
                 <button
                   className="text-xs text-primary hover:underline mt-1"
-                  onClick={() => { setSearchTerm(''); setLoteFilter('all') }}
+                  onClick={() => { setSearchTerm(''); setLoteFilter('all'); setTratadoFilter('all') }}
                 >
                   Limpar filtros
                 </button>
@@ -769,6 +873,7 @@ export default function Acompanhamento({
                 <table className="w-full text-sm">
                   <thead className="bg-muted/20 border-b border-card-border">
                     <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th className="px-4 py-3 text-center w-16">Tratado</th>
                       <th className="px-4 py-3 whitespace-nowrap">Data / Hora</th>
                       <th className="px-4 py-3">EAN</th>
                       <th className="px-4 py-3">SKU</th>
@@ -784,9 +889,25 @@ export default function Acompanhamento({
                       return (
                         <tr
                           key={lanc.id}
-                          className={`transition-colors ${isEditing ? 'bg-primary/5 border-l-2 border-l-primary' : 'hover:bg-muted/20'}`}
+                          className={`transition-colors ${
+                            isEditing
+                              ? 'bg-primary/5 border-l-2 border-l-primary'
+                              : lanc.tratado
+                                ? 'bg-green-500/[0.06] hover:bg-green-500/10'
+                                : 'hover:bg-muted/20'
+                          }`}
                           data-testid={`row-${lanc.id}`}
                         >
+                          {/* Tratado */}
+                          <td className="px-4 py-3 text-center">
+                            <BotaoTratado
+                              lancamento={lanc}
+                              loading={togglingIds.has(lanc.id)}
+                              title={tituloTratado(lanc)}
+                              onToggle={() => void alternarTratado(lanc)}
+                            />
+                          </td>
+
                           {/* Data */}
                           <td className="px-4 py-3 whitespace-nowrap text-muted-foreground text-xs">
                             {format(new Date(lanc.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
@@ -803,6 +924,12 @@ export default function Acompanhamento({
                           {/* Descrição */}
                           <td className="px-4 py-3 max-w-xs whitespace-normal break-words leading-snug">
                             {lanc.descricao || '—'}
+                            {lanc.tratado && lanc.tratado_por && (
+                              <p className="mt-0.5 text-[11px] text-green-400/80">
+                                ✓ {lanc.tratado_por}
+                                {lanc.tratado_at && ` · ${format(new Date(lanc.tratado_at), 'dd/MM HH:mm', { locale: ptBR })}`}
+                              </p>
+                            )}
                           </td>
 
                           {/* Lote — editável */}
@@ -906,11 +1033,24 @@ export default function Acompanhamento({
                   return (
                     <div
                       key={lanc.id}
-                      className={`border rounded-xl p-4 space-y-3 ${isEditing ? 'border-primary bg-primary/5' : 'border-border bg-muted/20'}`}
+                      className={`border rounded-xl p-4 space-y-3 ${
+                        isEditing
+                          ? 'border-primary bg-primary/5'
+                          : lanc.tratado
+                            ? 'border-green-500/40 bg-green-500/[0.06]'
+                            : 'border-border bg-muted/20'
+                      }`}
                       data-testid={`card-mobile-${lanc.id}`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
+                        <BotaoTratado
+                          lancamento={lanc}
+                          loading={togglingIds.has(lanc.id)}
+                          title={tituloTratado(lanc)}
+                          onToggle={() => void alternarTratado(lanc)}
+                          size="lg"
+                        />
+                        <div className="min-w-0 flex-1">
                           <p className="font-mono text-xs font-semibold truncate">{lanc.ean}</p>
                           <p className="text-xs text-foreground/90 leading-relaxed break-words">{lanc.descricao || '—'}</p>
                         </div>
@@ -922,6 +1062,14 @@ export default function Acompanhamento({
                       {lanc.sku && (
                         <p className="text-xs text-muted-foreground font-mono">
                           SKU: {lanc.sku}
+                        </p>
+                      )}
+
+                      {lanc.tratado && (
+                        <p className="flex items-center gap-1.5 text-xs font-medium text-green-400">
+                          <CheckCheck className="h-3.5 w-3.5" />
+                          Tratado{lanc.tratado_por ? ` por ${lanc.tratado_por}` : ''}
+                          {lanc.tratado_at && ` · ${format(new Date(lanc.tratado_at), 'dd/MM HH:mm', { locale: ptBR })}`}
                         </p>
                       )}
 
@@ -1084,5 +1232,43 @@ export default function Acompanhamento({
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// ─── Botão de marcação "tratado" ──────────────────────────────────────────────
+function BotaoTratado({
+  lancamento,
+  loading,
+  title,
+  onToggle,
+  size = 'sm',
+}: {
+  lancamento: InventarioLancamento
+  loading: boolean
+  title: string
+  onToggle: () => void
+  size?: 'sm' | 'lg'
+}) {
+  const marcado = !!lancamento.tratado
+  const dim = size === 'lg' ? 'h-9 w-9' : 'h-7 w-7'
+  const icon = size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={marcado}
+      aria-label={title}
+      title={title}
+      onClick={onToggle}
+      disabled={loading}
+      className={`${dim} mx-auto flex flex-shrink-0 items-center justify-center rounded-md border-2 transition-all duration-150 disabled:opacity-60 ${
+        marcado
+          ? 'border-green-500 bg-green-500 text-white hover:bg-green-600'
+          : 'border-zinc-600 bg-transparent text-transparent hover:border-green-500 hover:text-green-500/50'
+      }`}
+      data-testid={`button-tratado-${lancamento.id}`}
+    >
+      {loading ? <Loader2 className={`${icon} animate-spin ${marcado ? "text-white" : "text-green-400"}`} /> : <Check className={icon} strokeWidth={3} />}
+    </button>
   )
 }

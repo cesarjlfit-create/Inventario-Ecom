@@ -278,6 +278,7 @@ function App() {
             {activeView === 'acompanhamento' && activeSession && (
               <Acompanhamento
                 activeSession={activeSession}
+                userName={userName}
                 onSessionSelected={selecionarSessao}
                 onSessionUpdated={atualizarSessao}
               />
